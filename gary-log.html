@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Log">
+<title>Daily Log</title>
+<style>
+  :root {
+    --bg:#f7f6f3; --surface:#fff; --surface2:#f0efe9;
+    --border:rgba(0,0,0,.10); --border2:rgba(0,0,0,.18);
+    --text:#1a1916; --text2:#6b6a64; --text3:#a09f99;
+    --accent:#2a5caa; --accent-bg:#e8effa;
+    --done-bg:#e6f4e6; --done-text:#2d7a2d;
+    --stuck-bg:#fdeee6; --stuck-text:#b84c14;
+    --note-bg:#f0ece8; --note-text:#7a6a5a;
+    --log-bg:#eeeaf8; --log-text:#5040a0;
+    --outside-bg:#eaf3de; --outside-text:#3b6d11;
+    --radius:12px; --radius-sm:8px;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#161512; --surface:#1e1d1a; --surface2:#28271f;
+      --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.15);
+      --text:#f0ede8; --text2:#9a9890; --text3:#5a5850;
+      --accent:#6b9de8; --accent-bg:#1a2840;
+      --done-bg:#1a2e1a; --done-text:#6bbf6b;
+      --stuck-bg:#2e1a10; --stuck-text:#e07040;
+      --note-bg:#2a2420; --note-text:#a09080;
+      --log-bg:#1e1a30; --log-text:#9080d0;
+      --outside-bg:#1e2a14; --outside-text:#8fc050;
+      --shadow:0 1px 3px rgba(0,0,0,.3);
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;color:var(--text)}
+  body{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+  .header{padding:14px 16px 0;background:var(--bg);position:sticky;top:0;z-index:10}
+  .header-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .app-title{font-size:21px;font-weight:700;letter-spacing:-.5px}
+  .header-date{font-size:13px;color:var(--text3)}
+  .tabs{display:flex;border-bottom:1px solid var(--border)}
+  .tab{flex:1;padding:9px 2px;font-size:13px;text-align:center;border:none;background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .content{flex:1;padding:14px 16px 40px}
+  .section{display:none}
+  .section.visible{display:block}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .row:last-child{margin-bottom:0}
+  .row-label{font-size:14px;font-weight:500;flex-shrink:0}
+  .row-value{font-size:14px;font-weight:700;color:var(--accent);min-width:74px;text-align:right}
+  input[type=range]{flex:1;accent-color:var(--accent);height:28px}
+  select{font-size:14px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit}
+  .task-card{border-radius:var(--radius);padding:14px;margin-bottom:12px;border:1px solid var(--border);box-shadow:var(--shadow)}
+  .task-card.inside{background:var(--accent-bg)}
+  .task-card.outside{background:var(--outside-bg)}
+  .task-card.pick{background:var(--log-bg)}
+  .task-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .task-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .inside .task-kind{color:var(--accent)}
+  .outside .task-kind{color:var(--outside-text)}
+  .pick .task-kind{color:var(--log-text)}
+  .temp-chip{font-size:12px;font-weight:600;color:var(--outside-text);background:var(--surface);border-radius:20px;padding:2px 10px;border:1px solid var(--border)}
+  .task-name{font-size:17px;font-weight:600;line-height:1.35;margin-bottom:4px;color:var(--text)}
+  .task-sub{font-size:12px;color:var(--text2);margin-bottom:10px}
+  .task-actions{display:flex;gap:8px;margin-bottom:12px}
+  .btn{font-size:13px;padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;font-weight:500}
+  .btn:active{background:var(--surface2)}
+  .btn-add-pick{width:100%;padding:10px;font-size:14px;font-weight:600;border-radius:var(--radius);border:2px dashed var(--log-text);background:transparent;color:var(--log-text);cursor:pointer;font-family:inherit;margin-bottom:12px;letter-spacing:.01em}
+  .btn-add-pick:active{background:var(--log-bg)}
+  .pct-label{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px}
+  .pct-row{display:flex;gap:3px}
+  .pct-btn{flex:1;font-size:10px;padding:7px 0;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;font-weight:600}
+  .pct-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .outside .pct-btn.on{background:var(--outside-text);border-color:var(--outside-text)}
+  .pick-pct-btn.on{background:var(--log-text);color:#fff;border-color:var(--log-text)}
+  .keep-banner{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:13px;line-height:1.45}
+  .keep-banner .btn{margin-top:8px;margin-right:6px;font-size:12px;padding:5px 12px}
+  .muted{font-size:13px;color:var(--text3);text-align:center;padding:20px 0}
+  .pick-row-divider{border-top:1px solid var(--border);margin:12px 0}
+  .pick-select-row{display:flex;gap:6px;align-items:center}
+  .pick-select{flex:1;font-size:13px;padding:7px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit}
+  .pick-task-name{font-size:14px;font-weight:600;margin:6px 0 2px;color:var(--text)}
+  .shelve-btn{width:100%;font-size:12px;color:var(--text2);margin-top:4px}
+  .capture-area{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .capture-row{display:flex;gap:8px;align-items:center}
+  .capture-input{flex:1;font-size:15px;border:none;outline:none;background:transparent;color:var(--text);font-family:inherit}
+  .capture-input::placeholder{color:var(--text3)}
+  .add-btn{width:34px;height:34px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:22px;cursor:pointer;flex-shrink:0;line-height:1;padding-bottom:1px}
+  .add-btn:active{transform:scale(.93)}
+  .type-toggle{display:flex;gap:4px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+  .type-btn{flex:1;font-size:12px;padding:5px 4px;border-radius:6px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit}
+  .type-btn.active{background:var(--surface2);color:var(--text);font-weight:600}
+  .filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .filter-btn{font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
+  .filter-btn.on{background:var(--surface2);border-color:var(--border2);color:var(--text);font-weight:600}
+  .entry{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:flex-start;box-shadow:var(--shadow)}
+  .entry-body{flex:1;min-width:0}
+  .entry-text{font-size:14px;line-height:1.4;word-break:break-word;margin-bottom:4px}
+  .entry-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;border:none;font-family:inherit;white-space:nowrap}
+  .badge-inside{background:var(--accent-bg);color:var(--accent)}
+  .badge-outside{background:var(--outside-bg);color:var(--outside-text)}
+  .badge-away{background:var(--note-bg);color:var(--note-text)}
+  .badge-pct{background:var(--done-bg);color:var(--done-text)}
+  .badge-log{background:var(--log-bg);color:var(--log-text)}
+  .badge-note{background:var(--note-bg);color:var(--note-text)}
+  .badge-done{background:var(--done-bg);color:var(--done-text)}
+  .badge-stuck{background:var(--stuck-bg);color:var(--stuck-text)}
+  .badge-progress{background:var(--accent-bg);color:var(--accent)}
+  .badge-click{cursor:pointer}
+  .entry-time{font-size:11px;color:var(--text3)}
+  .del-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;flex-shrink:0}
+  .empty-state{text-align:center;padding:40px 0;color:var(--text3);font-size:14px}
+  .date-group-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+  .toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:18px;border-top:1px solid var(--border);padding-top:12px}
+  .tool-btn{font-size:12px;padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
+  .stats-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center}
+  .stat-num{font-size:19px;font-weight:700}
+  .stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+  .prog-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:5px}
+  .prog-fill{height:100%;background:var(--accent);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="app-title">Daily Log</div>
+    <div class="header-date" id="hdr-date"></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('today')" id="tab-today">Today</button>
+    <button class="tab" onclick="showTab('tasks')" id="tab-tasks">Tasks</button>
+    <button class="tab" onclick="showTab('log')" id="tab-log">Log</button>
+    <button class="tab" onclick="showTab('history')" id="tab-history">History</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- TODAY -->
+  <div class="section visible" id="sec-today">
+    <div class="card">
+      <div class="card-title">Morning Check-in</div>
+      <div class="row">
+        <span class="row-label">&#9200; Wake up</span>
+        <input type="range" id="wake-slider" min="240" max="720" step="15" value="390" oninput="onWake(this.value)">
+        <span class="row-value" id="wake-val">6:30 AM</span>
+      </div>
+      <div class="row">
+        <span class="row-label">&#127939; Exercise</span>
+        <input type="range" id="ex-slider" min="0" max="120" step="5" value="0" oninput="onExercise(this.value)">
+        <span class="row-value" id="ex-val">0 min</span>
+      </div>
+      <div class="row">
+        <span class="row-label">&#127769; Bed time</span>
+        <input type="range" id="bed-slider" min="1200" max="1530" step="15" value="1320" oninput="onBed(this.value)">
+        <span class="row-value" id="bed-val">10:00 PM</span>
+      </div>
+      <div class="row">
+        <span class="row-label">&#128197; Day type</span>
+        <select id="day-type" onchange="onDayType(this.value)">
+          <option value="work">Work day</option>
+          <option value="weekend">Weekend</option>
+          <option value="vacation">Vacation</option>
+          <option value="summer">Summer break</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div id="today-tasks-area"></div>
+  </div>
+
+  <!-- TASKS -->
+  <div class="section" id="sec-tasks">
+    <div class="capture-area">
+      <div class="capture-row">
+        <input class="capture-input" id="new-task-input" type="text" placeholder="Add a new task&hellip;" autocomplete="off">
+        <button class="add-btn" onclick="addTask()" aria-label="Add task">+</button>
+      </div>
+      <div class="type-toggle">
+        <button class="type-btn active" data-loc="Inside" onclick="selLoc(this)">&#127968; Inside</button>
+        <button class="type-btn" data-loc="Outside" onclick="selLoc(this)">&#127795; Outside</button>
+        <button class="type-btn" data-loc="Away From Home" onclick="selLoc(this)">&#128663; Away</button>
+      </div>
+      <div style="margin-top:8px">
+        <select id="new-task-cat" style="width:100%"></select>
+      </div>
+    </div>
+    <div class="filter-row" id="task-filters">
+      <button class="filter-btn on" onclick="setTaskFilter(this,'all')">All</button>
+      <button class="filter-btn" onclick="setTaskFilter(this,'Inside')">Inside</button>
+      <button class="filter-btn" onclick="setTaskFilter(this,'Outside')">Outside</button>
+      <button class="filter-btn" onclick="setTaskFilter(this,'Away From Home')">Away</button>
+      <button class="filter-btn" onclick="setTaskFilter(this,'started')">Started</button>
+      <button class="filter-btn" onclick="setTaskFilter(this,'complete')">100%</button>
+    </div>
+    <div class="filter-row">
+      <select id="cat-filter" onchange="renderTasks()" style="flex:1">
+        <option value="all">All categories</option>
+      </select>
+    </div>
+    <div id="task-list"></div>
+    <div class="toolbar">
+      <button class="tool-btn" onclick="exportCSV()">&#8595; Export CSV</button>
+      <button class="tool-btn" onclick="resetTasks()">&#9888;&#65039; Reset to defaults</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="section" id="sec-log">
+    <div class="capture-area">
+      <div class="capture-row">
+        <input class="capture-input" id="qinput" type="text" placeholder="Quick log, task, or note&hellip;" autocomplete="off">
+        <button class="add-btn" onclick="addEntry()" aria-label="Add entry">+</button>
+      </div>
+      <div class="type-toggle">
+        <button class="type-btn active" data-type="log" onclick="selType(this)">&#128203; Log</button>
+        <button class="type-btn" data-type="task" onclick="selType(this)">&#9989; Task</button>
+        <button class="type-btn" data-type="note" onclick="selType(this)">&#128204; Note</button>
+      </div>
+    </div>
+    <div id="list-log"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="section" id="sec-history">
+    <div class="stats-bar" id="hist-stats"></div>
+    <div id="hist-list"></div>
+    <div class="toolbar">
+      <button class="tool-btn" onclick="exportCSV()">&#8595; Export CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const K_TASKS='gary_tasks_v2', K_DAILY='gary_daily_v2', K_LOG='gary_daily_log_v1';
+const LAT=42.657, LON=-83.183;
+
+const CATS=['Personal','Vehicles','Financial','Learn','Family','Work','Robotics','House First Level','House Second Level','House Basement','House Garage','House Attic','Front Yard','Back Yard','North Side','South Side','Outside - General','Other'];
+const CAT_ICON={'Personal':'🙂','Vehicles':'🚙','Financial':'💰','Learn':'📚','Family':'👨‍👩‍👧‍👦','Work':'🏫','Robotics':'🤖','House First Level':'🏠','House Second Level':'🛏','House Basement':'🔨','House Garage':'🚪','House Attic':'🪜','Front Yard':'🌷','Back Yard':'🌳','North Side':'🧭','South Side':'☀️','Outside - General':'🌱','Other':'📦'};
+
+const DEFAULT_TASKS=[
+["Fix ceiling drywall","Inside","House First Level","Master Bathroom"],["Install dimmer switches","Inside","House First Level","Master Bathroom"],
+["Fix drywall and paint","Inside","House Second Level","Kids Bathroom"],["TP install","Inside","House Second Level","Kids Bathroom"],
+["Lego table","Inside","House Second Level","Jonah Room"],["Shelves - Jonah room","Inside","House Second Level","Jonah Room"],
+["Shelves - Hannah room","Inside","House Second Level","Hannah Room"],["New exhaust vent","Inside","House First Level","Half Bath"],
+["Replace faucet stems","Inside","House First Level","Half Bath"],["Sort and organize garage","Inside","House Garage",""],
+["Add attic space above garage","Inside","House Garage",""],["Add attic ladder","Inside","House Garage",""],
+["Move ceiling storage","Inside","House Garage",""],["Mod garage doors","Inside","House Garage",""],
+["Epoxy garage floor","Inside","House Garage",""],["Clear eaves","Inside","House Attic",""],["Fix attic fan","Inside","House Attic",""],
+["Basement electrical","Inside","House Basement",""],["Basement insulation","Inside","House Basement",""],
+["Basement drywall","Inside","House Basement",""],["Basement cabinets","Inside","House Basement",""],
+["Basement flooring","Inside","House Basement",""],["Basement trim / finish","Inside","House Basement",""],
+["Demolish basement bath","Inside","House Basement","Bathroom"],["Demolish basement bedroom","Inside","House Basement","Bedroom"],
+["Finish basement walls","Inside","House Basement",""],["Electrical - basement bath/bed","Inside","House Basement",""],
+["Lower beam","Inside","House Basement",""],["Finish work room","Inside","House Basement",""],
+["Finish basement bedroom","Inside","House Basement","Bedroom"],["Re-do basement storage room","Inside","House Basement","Storage Room"],
+["Relocate mulch","Outside","Outside - General",""],["Top soil / grade","Outside","Outside - General",""],["Clean pine trees","Outside","Outside - General",""],
+["Fresh mulch","Outside","Outside - General",""],["Weed","Outside","Outside - General",""],["Re-sand pavers","Outside","Outside - General",""],
+["Remove deck","Outside","Back Yard",""],["Add smaller deck","Outside","Back Yard",""],["Sprinklers","Outside","Outside - General",""],
+["Clean downspouts","Outside","Outside - General",""],["Relocate downspouts","Outside","Outside - General",""],
+["Exterior paint touchup","Outside","Outside - General",""],["Re-landscape","Outside","Outside - General",""],
+["Fix sprinkler heads","Outside","Outside - General",""],["Patio","Outside","Back Yard",""],["Sun room","Outside","Back Yard",""],
+["Garden","Outside","Outside - General",""],["Stone landscape edging","Outside","Outside - General",""],["Trim trees / bushes","Outside","Outside - General",""],
+["Lose weight","Inside","Personal","Health"],["Exercise","Inside","Personal","Health"],["Eat healthy","Inside","Personal","Health"],
+["Better back","Inside","Personal","Health"],["Replace windows","Inside","House First Level",""],
+["Leaf spring - Raptor","Outside","Vehicles","Raptor"],["Find squeak - Raptor","Outside","Vehicles","Raptor"],
+["Fix AC leak - Raptor","Outside","Vehicles","Raptor"],["Fix roof leak - Raptor","Outside","Vehicles","Raptor"],
+["Find leak - Expedition","Outside","Vehicles","Expedition"],["Fix rattle - Expedition","Outside","Vehicles","Expedition"],
+["Find leak - MKX","Outside","Vehicles","Lincoln MKX"],["Fix suspension - MKX","Outside","Vehicles","Lincoln MKX"],
+["New tires - MKX","Outside","Vehicles","Lincoln MKX"],["Fluids - MKX","Outside","Vehicles","Lincoln MKX"],
+["Hot water pressure - trailer","Outside","Vehicles","Trailer"],["Wash / coat trailer","Outside","Vehicles","Trailer"],
+["Refine budget","Inside","Financial",""],["Balance 401k","Inside","Financial","401K"],
+["Investigate Roth / taxes","Inside","Financial","401K"],["College plan","Inside","Financial",""],["HSA","Inside","Financial",""],
+["Programming","Inside","Learn",""],["App development","Inside","Learn",""],["Read more","Inside","Learn",""],
+["Bag storage","Inside","Learn",""],["Isaac job","Inside","Family","Kids"],["Isaac learn CAD","Inside","Family","Kids"],
+["Isaac college","Inside","Family","Kids"],
+["Develop Woods curriculum","Inside","Work","Curriculum"],["Refine Engineering curriculum","Inside","Work","Curriculum"],
+["Refine Architecture curriculum","Inside","Work","Curriculum"],["Refine Robotics curriculum","Inside","Work","Curriculum"],
+["AutoCAD training","Inside","Work","Curriculum"],["Inventor training","Inside","Work","Curriculum"],
+["WEST organization","Inside","Robotics","FRC"],["FEDS organization","Inside","Robotics","FRC"],
+["Summer training plan","Inside","Robotics","FRC"],["FEDS design training","Inside","Robotics","FRC"],
+["Mentor training","Inside","Robotics","FRC"],["Sponsorship","Inside","Robotics","FRC"]
+];
+
+const SUB_TO_CAT={'Master Bathroom':'House First Level','Half Bath':'House First Level','Kids Bathroom':'House Second Level','Jonah Room':'House Second Level','Hannah Room':'House Second Level','Garage':'House Garage','Attic':'House Attic','Basement':'House Basement','Back Yard':'Back Yard','Health':'Personal','Raptor':'Vehicles','Expedition':'Vehicles','Lincoln MKX':'Vehicles','Trailer':'Vehicles','401K':'Financial','Kids':'Family','Curriculum':'Work','FRC':'Robotics','Exterior':'Outside - General','Yard':'Outside - General','House':'House First Level'};
+const CLEAR_SUBS=['Yard','House','Exterior','Back Yard','Garage','Attic','Basement','Financial','Learn','Family'];
+
+let tasks=[], daily={}, entries=[], newTaskLoc='Inside', selectedType='log', taskFilter='all';
+
+function todayKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function yesterdayKey(){ const d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function loadAll(){
+  try{ tasks=JSON.parse(localStorage.getItem(K_TASKS)); }catch(e){ tasks=null; }
+  if(!tasks||!tasks.length){
+    tasks=DEFAULT_TASKS.map((t,i)=>({id:i+1,text:t[0],loc:t[1],cat:t[2],sub:t[3],pct:0,active:true}));
+    saveTasks();
+  } else {
+    let changed=false;
+    tasks.forEach(t=>{
+      if(!t.cat||t.cat==='House'||t.cat==='Yard'){
+        const inferred=SUB_TO_CAT[t.sub];
+        t.cat=inferred||(t.cat==='Yard'?'Outside - General':t.cat==='House'?'House First Level':'Other');
+        if(CLEAR_SUBS.indexOf(t.sub)>=0) t.sub='';
+        changed=true;
+      }
+    });
+    if(changed) saveTasks();
+  }
+  try{ daily=JSON.parse(localStorage.getItem(K_DAILY))||{}; }catch(e){ daily={}; }
+  try{ entries=JSON.parse(localStorage.getItem(K_LOG))||[]; }catch(e){ entries=[]; }
+  const tk=todayKey();
+  if(!daily[tk]){
+    daily[tk]={wake:390,bed:1320,exercise:0,dayType:guessDayType(),inside:null,outside:null,insidePct:0,outsidePct:0,insidePinned:false,outsidePinned:false,picks:[],skips:0,forced:false};
+    saveDaily();
+  } else {
+    const rec=daily[tk];
+    // migrate single pick -> picks array
+    if(rec.pick!==undefined&&!rec.picks){ rec.picks=rec.pick?[{id:rec.pick,pct:rec.pickPct||0}]:[]; delete rec.pick; delete rec.pickPct; saveDaily(); }
+    if(!rec.picks){ rec.picks=[]; saveDaily(); }
+    if(rec.insidePinned===undefined){ rec.insidePinned=false; rec.outsidePinned=false; saveDaily(); }
+    if(rec.bed===undefined){ rec.bed=1320; saveDaily(); }
+  }
+}
+function saveTasks(){ localStorage.setItem(K_TASKS,JSON.stringify(tasks)); }
+function saveDaily(){ localStorage.setItem(K_DAILY,JSON.stringify(daily)); }
+function saveLog(){ localStorage.setItem(K_LOG,JSON.stringify(entries)); }
+
+function guessDayType(){
+  const m=new Date().getMonth(), dow=new Date().getDay();
+  if(m>=5&&m<=7) return 'summer';
+  if(dow===0||dow===6) return 'weekend';
+  return 'work';
+}
+
+/* seeded random */
+function seedFor(str,offset){ let h=1779033703^str.length;
+  for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}
+  return (h>>>0)+offset*7919; }
+function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296; }; }
+function pickTask(loc,offset,excludeId){
+  const activePicks=(daily[todayKey()]&&daily[todayKey()].picks||[]).map(p=>p.id);
+  const pool=tasks.filter(t=>t.active&&t.loc===loc&&t.pct<100&&t.id!==excludeId&&activePicks.indexOf(t.id)<0);
+  if(!pool.length) return null;
+  const r=mulberry32(seedFor(todayKey()+loc,offset))();
+  return pool[Math.floor(r*pool.length)].id;
+}
+
+/* TODAY helpers */
+function d(){ return daily[todayKey()]; }
+function taskById(id){ return tasks.find(t=>t.id===id); }
+function fmtWake(mins){ const h=Math.floor(mins/60)%24,m=mins%60,ap=h>=12?'PM':'AM',hh=h%12||12;
+  return hh+':'+String(m).padStart(2,'0')+' '+ap; }
+function onWake(v){ d().wake=+v; document.getElementById('wake-val').textContent=fmtWake(+v); saveDaily(); }
+function onBed(v){ d().bed=+v; document.getElementById('bed-val').textContent=fmtWake(+v); saveDaily(); }
+function onExercise(v){ d().exercise=+v; document.getElementById('ex-val').textContent=v+' min'; saveDaily(); }
+function onDayType(v){ d().dayType=v; d().forced=false; saveDaily(); renderToday(); }
+function isTaskDay(){ return d().dayType!=='work'||d().forced; }
+
+function ensureAssignments(){
+  const t=d(), y=daily[yesterdayKey()]||{};
+  if(t.inside===null){ t.inside=(y.insidePinned&&y.inside)?y.inside:pickTask('Inside',t.skips); }
+  if(!taskById(t.inside)||taskById(t.inside).pct>=100) t.inside=pickTask('Inside',t.skips);
+  if(t.outside===null){ t.outside=(y.outsidePinned&&y.outside)?y.outside:pickTask('Outside',t.skips); }
+  if(!taskById(t.outside)||taskById(t.outside).pct>=100) t.outside=pickTask('Outside',t.skips);
+  saveDaily();
+}
+function skipTask(loc){
+  const t=d(); t.skips++;
+  if(loc==='Inside'){ t.inside=pickTask('Inside',t.skips,t.inside); t.insidePct=0; }
+  else{ t.outside=pickTask('Outside',t.skips,t.outside); t.outsidePct=0; }
+  saveDaily(); renderToday();
+}
+function setPct(loc,pct){
+  const t=d();
+  if(loc==='Inside'){ t.insidePct=pct; const task=taskById(t.inside); if(task&&pct>task.pct){ task.pct=pct; saveTasks(); } }
+  else{ t.outsidePct=pct; const task=taskById(t.outside); if(task&&pct>task.pct){ task.pct=pct; saveTasks(); } }
+  saveDaily(); renderToday();
+}
+function keepYesterday(loc,keep){
+  const t=d(), y=daily[yesterdayKey()];
+  if(keep&&y){ if(loc==='Inside'){ t.inside=y.inside; t.insidePct=0; } else{ t.outside=y.outside; t.outsidePct=0; } }
+  t['ack'+loc]=true; saveDaily(); renderToday();
+}
+function pinTask(loc){
+  const t=d();
+  if(loc==='Inside') t.insidePinned=!t.insidePinned;
+  else t.outsidePinned=!t.outsidePinned;
+  saveDaily(); renderToday();
+}
+function forceTasks(){ d().forced=true; saveDaily(); renderToday(); }
+
+/* inline edit on Today cards */
+function toggleTaskEdit(id){ editingTaskId=(editingTaskId===id)?null:id; renderToday(); }
+function saveTaskEdit(id){
+  const t=tasks.find(x=>x.id===id); if(!t) return;
+  const txt=document.getElementById('te-text').value.trim();
+  if(txt) t.text=txt;
+  t.cat=document.getElementById('te-cat').value;
+  t.sub=document.getElementById('te-sub').value.trim();
+  editingTaskId=null; saveTasks(); renderToday();
+}
+function inlineEditForm(task,cancelFn){
+  return '<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">'+
+    '<input id="te-text" value="'+esc(task.text)+'" style="font-size:14px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;width:100%">'+
+    '<select id="te-cat" style="font-size:13px;padding:7px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">'+catOptions(task.cat||'Other')+'</select>'+
+    '<input id="te-sub" value="'+esc(task.sub||'')+'" placeholder="Detail (room, area…)" style="font-size:13px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;width:100%">'+
+    '<div style="display:flex;gap:6px">'+
+    '<button class="btn" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="saveTaskEdit('+task.id+')">💾 Save</button>'+
+    '<button class="btn" style="flex:1" onclick="'+cancelFn+'">Cancel</button>'+
+    '</div></div>';
+}
+
+/* pick handlers */
+function addPick(){ d().picks.push({id:null,pct:0}); saveDaily(); renderToday(); }
+function setPickTask(idx,val){ const t=d(); t.picks[idx].id=val?+val:null; t.picks[idx].pct=0; saveDaily(); renderToday(); }
+function setPickPct(idx,pct){
+  const t=d(); t.picks[idx].pct=pct;
+  const task=taskById(t.picks[idx].id);
+  if(task&&pct>task.pct){ task.pct=pct; saveTasks(); }
+  saveDaily(); renderToday();
+}
+function removePick(idx){ d().picks.splice(idx,1); saveDaily(); renderToday(); }
+function shelveIt(idx){ removePick(idx); } /* task stays in pool, just removed from today */
+function carryYesterdayPicks(add){
+  const t=d(), y=daily[yesterdayKey()]||{};
+  if(add){ (y.picks||[]).filter(p=>p.id&&p.pct>0&&p.pct<100).forEach(yp=>{ if(!t.picks.find(p=>p.id===yp.id)) t.picks.push({id:yp.id,pct:0}); }); }
+  t.picksAckYesterday=true; saveDaily(); renderToday();
+}
+
+/* weather */
+let cachedTemp=null;
+async function fetchTemp(){
+  if(cachedTemp!==null) return cachedTemp;
+  try{
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&daily=temperature_2m_max&temperature_unit=fahrenheit&timezone=America%2FDetroit&forecast_days=1');
+    const j=await r.json();
+    cachedTemp=Math.round(j.daily.temperature_2m_max[0]);
+  }catch(e){ cachedTemp='--'; }
+  return cachedTemp;
+}
+
+function pctSelector(loc,current){
+  let html='<div class="pct-label">% COMPLETE TODAY</div><div class="pct-row">';
+  for(let p=0;p<=100;p+=10){
+    html+='<button class="pct-btn '+(current===p?'on':'')+'" onclick="setPct(\''+loc+'\','+p+')">'+(p===100?'💯':p)+'</button>';
+  }
+  return html+'</div>';
+}
+
+function taskCard(loc,taskId,pct,temp){
+  const task=taskById(taskId);
+  const cls=loc==='Inside'?'inside':'outside';
+  const icon=loc==='Inside'?'🏠':'🌳';
+  const tempChip=loc==='Outside'?'<span class="temp-chip">🌡 High '+temp+'°F</span>':'';
+  if(!task) return '<div class="task-card '+cls+'"><div class="task-card-head"><span class="task-kind">'+icon+' '+loc+' task</span>'+tempChip+'</div><div class="muted">No incomplete '+loc.toLowerCase()+' tasks — add more in the Tasks tab!</div></div>';
+  const y=daily[yesterdayKey()];
+  let keepHtml='';
+  if(y&&!d()['ack'+loc]){
+    const yid=loc==='Inside'?y.inside:y.outside;
+    const ypct=loc==='Inside'?y.insidePct:y.outsidePct;
+    if(yid&&yid!==taskId&&ypct>0&&ypct<100){
+      const ytask=taskById(yid);
+      if(ytask&&ytask.pct<100){
+        keepHtml='<div class="keep-banner">↩️ Yesterday you were '+ypct+'% into "<b>'+esc(ytask.text)+'</b>". Keep it or take today\'s pick?<br>'+
+          '<button class="btn" onclick="keepYesterday(\''+loc+'\',true)">Keep yesterday\'s</button>'+
+          '<button class="btn" onclick="keepYesterday(\''+loc+'\',false)">New task</button></div>';
+      }
+    }
+  }
+  const isPinned=loc==='Inside'?d().insidePinned:d().outsidePinned;
+  return keepHtml+'<div class="task-card '+cls+'">'+
+    '<div class="task-card-head"><span class="task-kind">'+icon+' '+loc+' task</span>'+tempChip+'</div>'+
+    '<div class="task-name">'+esc(task.text)+'</div>'+
+    '<div class="task-sub">'+(CAT_ICON[task.cat]||'')+' '+esc(task.cat||'Other')+(task.sub?' · '+esc(task.sub):'')+' · overall best: '+task.pct+'%</div>'+
+    '<div class="task-actions">'+
+    '<button class="btn" onclick="skipTask(\''+loc+'\')">⏭ Next / Skip</button>'+
+    '<button class="btn" style="'+(isPinned?'background:var(--done-bg);color:var(--done-text);border-color:var(--done-text)':'')+'" onclick="pinTask(\''+loc+'\')">'+(isPinned?'📌 Kept':'📌 Keep')+'</button>'+
+    '</div>'+pctSelector(loc,pct)+
+    (editingTaskId===task.id?inlineEditForm(task,'toggleTaskEdit('+task.id+')'):'<button class="btn" style="width:100%;margin-top:8px;font-size:12px;color:var(--text2)" onclick="toggleTaskEdit('+task.id+')">✎ Edit task</button>')+
+    '</div>';
+}
+
+function pickCard(){
+  const t=d();
+  const y=daily[yesterdayKey()]||{};
+  const yPicks=(y.picks||[]).filter(p=>p.id&&p.pct>0&&p.pct<100);
+  const pickedIds=t.picks.map(p=>p.id).filter(Boolean);
+  const pool=tasks.filter(x=>x.active&&x.pct<100);
+
+  function buildOpts(selectedId){
+    let opts='<option value="">— Choose a task —</option>';
+    CATS.forEach(c=>{
+      const group=pool.filter(x=>(x.cat||'Other')===c&&(x.id===selectedId||pickedIds.indexOf(x.id)<0))
+        .sort((a,b)=>a.text.localeCompare(b.text));
+      if(!group.length) return;
+      opts+='<optgroup label="'+(CAT_ICON[c]||'')+' '+c+'">'+
+        group.map(x=>'<option value="'+x.id+'" '+(x.id===selectedId?'selected':'')+'>'+
+          (x.loc==='Inside'?'🏠':x.loc==='Outside'?'🌳':'🚗')+' '+esc(x.text)+(x.pct>0?' ('+x.pct+'%)':'')+
+          '</option>').join('')+'</optgroup>';
+    });
+    return opts;
+  }
+
+  /* yesterday unfinished picks banner */
+  let carryHtml='';
+  const unacked=yPicks.filter(yp=>!t.picks.find(p=>p.id===yp.id)&&!t.picksAckYesterday);
+  if(unacked.length){
+    const names=unacked.map(p=>{ const tk=taskById(p.id); return tk?'"'+esc(tk.text)+'" ('+p.pct+'%)':''; }).filter(Boolean).join(', ');
+    carryHtml='<div class="keep-banner">↩️ Yesterday\'s unfinished picks: '+names+
+      '<br><button class="btn" onclick="carryYesterdayPicks(true)">Add them back</button>'+
+      '<button class="btn" onclick="carryYesterdayPicks(false)">Start fresh</button></div>';
+  }
+
+  /* pick rows */
+  let rows='';
+  t.picks.forEach((p,i)=>{
+    const task=p.id?taskById(p.id):null;
+    if(i>0) rows+='<div class="pick-row-divider"></div>';
+    rows+='<div class="pick-select-row">'+
+      '<select class="pick-select" onchange="setPickTask('+i+',this.value)">'+buildOpts(p.id)+'</select>'+
+      '<button class="del-btn" onclick="removePick('+i+')" title="Remove" style="font-size:18px">×</button></div>';
+    if(task){
+      rows+='<div class="pick-task-name">'+esc(task.text)+'</div>'+
+        '<div class="task-sub">'+(CAT_ICON[task.cat]||'')+' '+esc(task.cat||'Other')+(task.sub?' · '+esc(task.sub):'')+' · overall best: '+task.pct+'%</div>'+
+        '<div class="pct-label">% COMPLETE TODAY</div><div class="pct-row" style="margin-bottom:10px">';
+      for(let pp=0;pp<=100;pp+=10){
+        rows+='<button class="pct-btn pick-pct-btn '+(p.pct===pp?'on':'')+'" onclick="setPickPct('+i+','+pp+')">'+(pp===100?'💯':pp)+'</button>';
+      }
+      rows+='</div><button class="btn shelve-btn" onclick="shelveIt('+i+')">📥 Shelve — put back in the pool</button>'+
+        (editingTaskId===task.id?inlineEditForm(task,'toggleTaskEdit('+task.id+')'):'<button class="btn" style="width:100%;font-size:12px;color:var(--text2);margin-top:6px" onclick="toggleTaskEdit('+task.id+')">✎ Edit task</button>');
+    }
+  });
+
+  const countLabel=t.picks.length?' ('+t.picks.length+')':'';
+  return '<div class="task-card pick">'+
+    '<div class="task-card-head"><span class="task-kind">🎯 Your picks'+countLabel+'</span></div>'+
+    carryHtml+
+    (t.picks.length?rows:'<div class="muted" style="padding:4px 0 8px">Tap below to pull any task into today.</div>')+
+    '</div>';
+}
+
+async function renderToday(){
+  const t=d();
+  /* if the task being edited is no longer on screen, clear it */
+  if(editingTaskId!==null){
+    const onScreen=[t.inside,t.outside,...(t.picks||[]).map(p=>p.id)];
+    if(onScreen.indexOf(editingTaskId)<0) editingTaskId=null;
+  }
+  document.getElementById('wake-slider').value=t.wake;
+  document.getElementById('wake-val').textContent=fmtWake(t.wake);
+  document.getElementById('bed-slider').value=t.bed||1320;
+  document.getElementById('bed-val').textContent=fmtWake(t.bed||1320);
+  document.getElementById('ex-slider').value=t.exercise;
+  document.getElementById('ex-val').textContent=t.exercise+' min';
+  document.getElementById('day-type').value=t.dayType;
+
+  const area=document.getElementById('today-tasks-area');
+  const addPickBtn='<button class="btn-add-pick" onclick="addPick()">+ Add your own task</button>';
+
+  if(!isTaskDay()){
+    area.innerHTML='<div class="card"><div class="card-title">Today\'s Tasks</div>'+
+      '<div class="muted">Work day — no assigned home tasks. 💼</div>'+
+      '<div style="text-align:center;padding-bottom:6px"><button class="btn" onclick="forceTasks()">Give me tasks anyway</button></div></div>'+
+      pickCard()+addPickBtn;
+    return;
+  }
+  ensureAssignments();
+  area.innerHTML='<div class="muted" style="padding:10px 0">Loading weather…</div>';
+  const temp=await fetchTemp();
+  area.innerHTML=taskCard('Inside',t.inside,t.insidePct,temp)+
+    taskCard('Outside',t.outside,t.outsidePct,temp)+
+    pickCard()+addPickBtn;
+}
+
+/* TASKS TAB */
+function selLoc(btn){ document.querySelectorAll('[data-loc]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); newTaskLoc=btn.dataset.loc; }
+function addTask(){
+  const inp=document.getElementById('new-task-input'), txt=inp.value.trim(); if(!txt) return;
+  const cat=document.getElementById('new-task-cat').value;
+  tasks.push({id:Date.now(),text:txt,loc:newTaskLoc,cat:cat,sub:'',pct:0,active:true});
+  inp.value=''; saveTasks(); renderTasks();
+}
+function delTask(id){ if(!confirm('Delete this task permanently?')) return; tasks=tasks.filter(t=>t.id!==id); saveTasks(); renderTasks(); }
+function setTaskFilter(btn,f){ taskFilter=f; document.querySelectorAll('#task-filters .filter-btn').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); renderTasks(); }
+function locBadge(loc){ return loc==='Inside'?'badge-inside':loc==='Outside'?'badge-outside':'badge-away'; }
+let editingId=null;
+let editingTaskId=null; /* id of task being edited inline on Today tab */
+function editTask(id){ editingId=(editingId===id)?null:id; renderTasks(); }
+function saveEdit(id){
+  const t=tasks.find(x=>x.id===id); if(!t) return;
+  t.text=document.getElementById('edit-text').value.trim()||t.text;
+  t.loc=document.getElementById('edit-loc').value;
+  t.cat=document.getElementById('edit-cat').value;
+  t.sub=document.getElementById('edit-sub').value.trim();
+  editingId=null; saveTasks(); renderTasks();
+}
+function catOptions(sel){ return CATS.map(c=>'<option value="'+c+'" '+(c===sel?'selected':'')+'>'+(CAT_ICON[c]||'')+' '+c+'</option>').join(''); }
+function renderTasks(){
+  let list=tasks.filter(t=>t.active);
+  if(taskFilter==='started') list=list.filter(t=>t.pct>0&&t.pct<100);
+  else if(taskFilter==='complete') list=list.filter(t=>t.pct>=100);
+  else if(taskFilter!=='all') list=list.filter(t=>t.loc===taskFilter);
+  const catF=document.getElementById('cat-filter').value;
+  if(catF!=='all') list=list.filter(t=>(t.cat||'Other')===catF);
+  const el=document.getElementById('task-list');
+  if(!list.length){ el.innerHTML='<div class="empty-state">No tasks match</div>'; return; }
+  el.innerHTML=list.map(t=>{
+    if(t.id===editingId){
+      return '<div class="entry" style="flex-direction:column;align-items:stretch;gap:8px">'+
+        '<input class="capture-input" id="edit-text" value="'+esc(t.text)+'" style="border:1px solid var(--border2);border-radius:6px;padding:7px 10px">'+
+        '<select id="edit-loc"><option '+(t.loc==='Inside'?'selected':'')+'>Inside</option><option '+(t.loc==='Outside'?'selected':'')+'>Outside</option><option '+(t.loc==='Away From Home'?'selected':'')+'>Away From Home</option></select>'+
+        '<select id="edit-cat">'+catOptions(t.cat||'Other')+'</select>'+
+        '<input class="capture-input" id="edit-sub" value="'+esc(t.sub||'')+'" placeholder="Detail (room, vehicle…)" style="border:1px solid var(--border2);border-radius:6px;padding:7px 10px">'+
+        '<div style="display:flex;gap:6px"><button class="btn" style="flex:1" onclick="saveEdit('+t.id+')">💾 Save</button>'+
+        '<button class="btn" style="flex:1" onclick="editTask('+t.id+')">Cancel</button></div></div>';
+    }
+    return '<div class="entry"><div class="entry-body">'+
+      '<div class="entry-text">'+esc(t.text)+'</div>'+
+      '<div class="entry-footer">'+
+      '<span class="badge '+locBadge(t.loc)+'">'+(t.loc==='Away From Home'?'🚗 Away':t.loc==='Inside'?'🏠 Inside':'🌳 Outside')+'</span>'+
+      '<span class="badge badge-note">'+(CAT_ICON[t.cat]||'📦')+' '+esc(t.cat||'Other')+'</span>'+
+      (t.sub?'<span class="entry-time">'+esc(t.sub)+'</span>':'')+
+      '<span class="badge badge-pct">'+t.pct+'%</span></div>'+
+      '<div class="prog-bar"><div class="prog-fill" style="width:'+t.pct+'%"></div></div>'+
+      '</div><button class="del-btn" onclick="editTask('+t.id+')" title="Edit" style="font-size:14px">✎</button>'+
+      '<button class="del-btn" onclick="delTask('+t.id+')">×</button></div>';
+  }).join('');
+}
+function resetTasks(){ if(!confirm('Reset task list to built-in defaults? Progress will be lost.')) return; localStorage.removeItem(K_TASKS); tasks=null; loadAll(); renderTasks(); }
+
+/* LOG TAB */
+function selType(btn){ document.querySelectorAll('[data-type]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); selectedType=btn.dataset.type; }
+function addEntry(){
+  const inp=document.getElementById('qinput'), txt=inp.value.trim(); if(!txt) return;
+  entries.unshift({id:Date.now(),text:txt,type:selectedType,status:selectedType==='task'?'progress':selectedType,created:new Date().toISOString()});
+  inp.value=''; saveLog(); renderLog();
+}
+function cycleStatus(id){ const e=entries.find(x=>x.id===id); if(!e||e.type!=='task') return; const next={progress:'done',done:'progress',stuck:'progress'}; e.status=next[e.status]||'progress'; saveLog(); renderLog(); }
+function markStuck(id){ const e=entries.find(x=>x.id===id); if(!e||e.type!=='task') return; e.status='stuck'; saveLog(); renderLog(); }
+function delEntry(id){ if(!confirm('Delete?')) return; entries=entries.filter(x=>x.id!==id); saveLog(); renderLog(); }
+function fmtTime(iso){ return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function fmtDateLbl(iso){
+  const dd=new Date(iso),t=new Date(),y=new Date(); y.setDate(y.getDate()-1);
+  if(dd.toDateString()===t.toDateString()) return 'Today';
+  if(dd.toDateString()===y.toDateString()) return 'Yesterday';
+  return dd.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+}
+function eBadge(e){
+  if(e.type==='note') return['badge-note','📌 Note'];
+  if(e.type==='log') return['badge-log','📋 Logged'];
+  if(e.status==='done') return['badge-done','✅ Done'];
+  if(e.status==='stuck') return['badge-stuck','🟠 Stuck'];
+  return['badge-progress','🔵 In Progress'];
+}
+function renderLog(){
+  const el=document.getElementById('list-log');
+  if(!entries.length){ el.innerHTML='<div class="empty-state">📭 Nothing logged yet</div>'; return; }
+  let html='',last='';
+  entries.forEach(e=>{
+    const dk=fmtDateLbl(e.created);
+    if(dk!==last){ html+='<div class="date-group-label">'+dk+'</div>'; last=dk; }
+    const b=eBadge(e), isTask=e.type==='task';
+    html+='<div class="entry"><div class="entry-body">'+
+      '<div class="entry-text">'+esc(e.text)+'</div>'+
+      '<div class="entry-footer">'+
+      '<button class="badge '+b[0]+(isTask?' badge-click':'')+'" '+
+      (isTask?'onclick="cycleStatus('+e.id+')" ondblclick="markStuck('+e.id+')" title="Tap: toggle done · Double-tap: stuck"':'style="cursor:default"')+
+      '>'+b[1]+'</button>'+
+      '<span class="entry-time">'+fmtTime(e.created)+'</span></div></div>'+
+      '<button class="del-btn" onclick="delEntry('+e.id+')">×</button></div>';
+  });
+  el.innerHTML=html;
+}
+
+/* HISTORY */
+function renderHistory(){
+  const keys=Object.keys(daily).sort().reverse();
+  const totalEx=keys.reduce((s,k)=>s+(daily[k].exercise||0),0);
+  const started=tasks.filter(t=>t.pct>0&&t.pct<100).length;
+  const done=tasks.filter(t=>t.pct>=100).length;
+  document.getElementById('hist-stats').innerHTML=
+    '<div class="stat-card"><div class="stat-num">'+totalEx+'</div><div class="stat-label">Exercise min</div></div>'+
+    '<div class="stat-card"><div class="stat-num">'+started+'</div><div class="stat-label">In progress</div></div>'+
+    '<div class="stat-card"><div class="stat-num" style="color:var(--done-text)">'+done+'</div><div class="stat-label">Done</div></div>';
+  const el=document.getElementById('hist-list');
+  if(!keys.length){ el.innerHTML='<div class="empty-state">No history yet</div>'; return; }
+  el.innerHTML=keys.map(k=>{
+    const r=daily[k];
+    const it=r.inside?taskById(r.inside):null, ot=r.outside?taskById(r.outside):null;
+    const pks=(r.picks||[]).map(p=>({task:taskById(p.id),pct:p.pct})).filter(p=>p.task);
+    return '<div class="entry"><div class="entry-body">'+
+      '<div class="entry-text"><b>'+k+'</b> · '+r.dayType+' · wake '+fmtWake(r.wake)+(r.bed?' · bed '+fmtWake(r.bed):'')+' · '+r.exercise+' min exercise</div>'+
+      (it?'<div class="entry-footer"><span class="badge badge-inside">🏠 '+esc(it.text)+'</span><span class="badge badge-pct">'+r.insidePct+'%</span>'+(r.insidePinned?'<span class="badge badge-done">📌</span>':'')+'</div>':'')+
+      (ot?'<div class="entry-footer" style="margin-top:3px"><span class="badge badge-outside">🌳 '+esc(ot.text)+'</span><span class="badge badge-pct">'+r.outsidePct+'%</span>'+(r.outsidePinned?'<span class="badge badge-done">📌</span>':'')+'</div>':'')+
+      pks.map(p=>'<div class="entry-footer" style="margin-top:3px"><span class="badge badge-log">🎯 '+esc(p.task.text)+'</span><span class="badge badge-pct">'+p.pct+'%</span></div>').join('')+
+      '</div></div>';
+  }).join('');
+}
+
+/* SHARED */
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showTab(tab){
+  ['today','tasks','log','history'].forEach(t=>{
+    document.getElementById('sec-'+t).classList.toggle('visible',t===tab);
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='today') renderToday();
+  if(tab==='tasks') renderTasks();
+  if(tab==='log') renderLog();
+  if(tab==='history') renderHistory();
+}
+function exportCSV(){
+  let rows=[['=== DAILY RECORDS ===']];
+  rows.push(['Date','Day Type','Wake','Bed','Exercise Min','Inside Task','Inside %','Inside Pinned','Outside Task','Outside %','Outside Pinned','Your Picks']);
+  Object.keys(daily).sort().forEach(k=>{
+    const r=daily[k], it=r.inside?taskById(r.inside):null, ot=r.outside?taskById(r.outside):null;
+    const pksStr=(r.picks||[]).map(p=>{ const t=taskById(p.id); return t?t.text+' ('+p.pct+'%)':''; }).filter(Boolean).join(' | ');
+    rows.push([k,r.dayType,fmtWake(r.wake),r.bed?fmtWake(r.bed):'',r.exercise,it?it.text:'',r.insidePct||0,r.insidePinned?'yes':'',ot?ot.text:'',r.outsidePct||0,r.outsidePinned?'yes':'',pksStr]);
+  });
+  rows.push([''],['=== TASKS ==='],['Task','Location','Category','Detail','% Complete']);
+  tasks.forEach(t=>rows.push([t.text,t.loc,t.cat||'Other',t.sub||'',t.pct]));
+  rows.push([''],['=== LOG ENTRIES ==='],['Date','Type','Status','Text']);
+  entries.forEach(e=>rows.push([new Date(e.created).toLocaleString('en-US'),e.type,e.status,e.text]));
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download='gary-log-'+todayKey()+'.csv'; a.click();
+}
+
+/* INIT */
+document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+document.getElementById('new-task-input').addEventListener('keydown',e=>{ if(e.key==='Enter') addTask(); });
+document.getElementById('qinput').addEventListener('keydown',e=>{ if(e.key==='Enter') addEntry(); });
+document.getElementById('new-task-cat').innerHTML=catOptions('House First Level');
+document.getElementById('cat-filter').innerHTML='<option value="all">All categories</option>'+catOptions(null);
+loadAll();
+renderToday();
+</script>
+</body>
+</html>
