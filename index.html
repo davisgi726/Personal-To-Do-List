@@ -59,6 +59,12 @@
   .task-card.inside{background:var(--accent-bg)}
   .task-card.outside{background:var(--outside-bg)}
   .task-card.pick{background:var(--log-bg)}
+  .task-card.quickest{background:#fef9e7;border-color:#f0c040}
+  @media(prefers-color-scheme:dark){.task-card.quickest{background:#2a2400;border-color:#806800}}
+  .quickest .task-kind{color:#7a5c00}
+  @media(prefers-color-scheme:dark){.quickest .task-kind{color:#d4a800}}
+  .quickest .pct-btn.on{background:#7a5c00;border-color:#7a5c00;color:#fff}
+  .hrs-chip{font-size:12px;font-weight:600;padding:2px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--text2)}
   .task-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .task-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
   .inside .task-kind{color:var(--accent)}
@@ -202,6 +208,10 @@
       <button class="filter-btn" onclick="setTaskFilter(this,'complete')">100%</button>
     </div>
     <div class="filter-row">
+      <button class="filter-btn sort-btn on" onclick="setTaskSort(this,'default')">Default</button>
+      <button class="filter-btn sort-btn" onclick="setTaskSort(this,'quickest')">⚡ Quickest first</button>
+    </div>
+    <div class="filter-row">
       <select id="cat-filter" onchange="renderTasks()" style="flex:1">
         <option value="all">All categories</option>
       </select>
@@ -246,6 +256,10 @@ const LAT=42.657, LON=-83.183;
 
 const CATS=['Personal','Vehicles','Financial','Learn','Family','Work','Robotics','House First Level','House Second Level','House Basement','House Garage','House Attic','Front Yard','Back Yard','North Side','South Side','Outside - General','Other'];
 const CAT_ICON={'Personal':'🙂','Vehicles':'🚙','Financial':'💰','Learn':'📚','Family':'👨‍👩‍👧‍👦','Work':'🏫','Robotics':'🤖','House First Level':'🏠','House Second Level':'🛏','House Basement':'🔨','House Garage':'🚪','House Attic':'🪜','Front Yard':'🌷','Back Yard':'🌳','North Side':'🧭','South Side':'☀️','Outside - General':'🌱','Other':'📦'};
+
+const HRS_STEPS=[0.25,0.5,1,2,4,8,16];
+function remHrs(task){ if(!task||task.hrs==null) return null; return Math.round(task.hrs*(1-(task.pct/100))*100)/100; }
+function fmtHrs(h){ if(h==null) return '—'; return h<1?(h*60|0)+'m':h+'h'; }
 
 const DEFAULT_TASKS=[
 ["Fix ceiling drywall","Inside","House First Level","Master Bathroom"],["Install dimmer switches","Inside","House First Level","Master Bathroom"],
@@ -408,6 +422,7 @@ function saveTaskEdit(id){
   if(txt) t.text=txt;
   t.cat=document.getElementById('te-cat').value;
   t.sub=document.getElementById('te-sub').value.trim();
+  const thv=document.getElementById('te-hrs').value; t.hrs=thv?+thv:null;
   editingTaskId=null; saveTasks(); renderToday();
 }
 function inlineEditForm(task,cancelFn){
@@ -415,10 +430,53 @@ function inlineEditForm(task,cancelFn){
     '<input id="te-text" value="'+esc(task.text)+'" style="font-size:14px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;width:100%">'+
     '<select id="te-cat" style="font-size:13px;padding:7px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">'+catOptions(task.cat||'Other')+'</select>'+
     '<input id="te-sub" value="'+esc(task.sub||'')+'" placeholder="Detail (room, area…)" style="font-size:13px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;width:100%">'+
+    '<select id="te-hrs" style="font-size:13px;padding:7px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">'+hrsOptions(task.hrs)+'</select>'+
     '<div style="display:flex;gap:6px">'+
     '<button class="btn" style="flex:1;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="saveTaskEdit('+task.id+')">💾 Save</button>'+
     '<button class="btn" style="flex:1" onclick="'+cancelFn+'">Cancel</button>'+
     '</div></div>';
+}
+
+/* ⚡ Next Quickest card */
+function quickestCard(){
+  const t=d();
+  const exclude=[t.inside,t.outside,...(t.picks||[]).map(p=>p.id)].filter(Boolean);
+  const pool=tasks.filter(x=>x.active&&x.pct<100&&x.hrs!=null&&exclude.indexOf(x.id)<0);
+  if(!pool.length){
+    const anyUnest=tasks.filter(x=>x.active&&x.pct<100&&x.hrs==null&&exclude.indexOf(x.id)<0).length;
+    return '<div class="task-card quickest">'+
+      '<div class="task-card-head"><span class="task-kind">⚡ Next Quickest</span></div>'+
+      (anyUnest?'<div class="muted" style="padding:4px 0">Add hour estimates in the Tasks tab to unlock this card.</div>':
+       '<div class="muted" style="padding:4px 0">All estimated tasks are already in today\'s queue!</div>')+
+      '</div>';
+  }
+  pool.sort((a,b)=>(remHrs(a)||999)-(remHrs(b)||999));
+  const task=pool[0];
+  const rh=remHrs(task);
+  const qpct=t.quickestPct||0;
+  const isPinned=t.quickestPinned||false;
+  return '<div class="task-card quickest">'+
+    '<div class="task-card-head"><span class="task-kind">⚡ Next Quickest</span>'+
+    '<span class="hrs-chip">'+fmtHrs(rh)+' left</span></div>'+
+    '<div class="task-name">'+esc(task.text)+'</div>'+
+    '<div class="task-sub">'+(CAT_ICON[task.cat]||'')+' '+esc(task.cat||'Other')+(task.sub?' · '+esc(task.sub):'')+' · '+fmtHrs(task.hrs)+' est.</div>'+
+    '<div class="task-actions">'+
+    '<button class="btn" onclick="skipQuickest()">⏭ Next</button>'+
+    '<button class="btn" style="'+(isPinned?'background:var(--done-bg);color:var(--done-text);border-color:var(--done-text)':'')+'" onclick="pinQuickest()">'+(isPinned?'📌 Kept':'📌 Keep')+'</button>'+
+    '</div>'+
+    '<div class="pct-label">% COMPLETE TODAY</div><div class="pct-row" style="margin-bottom:10px">'+
+    [0,10,20,30,40,50,60,70,80,90,100].map(p=>'<button class="pct-btn '+(qpct===p?'on':'')+'" onclick="setQuickestPct('+task.id+','+p+')">'+(p===100?'💯':p)+'</button>').join('')+
+    '</div>'+
+    (editingTaskId===task.id?inlineEditForm(task,'toggleTaskEdit('+task.id+')'):'<button class="btn" style="width:100%;font-size:12px;color:var(--text2)" onclick="toggleTaskEdit('+task.id+')">✎ Edit task</button>')+
+    '</div>';
+}
+function skipQuickest(){ const t=d(); t.quickestSkips=(t.quickestSkips||0)+1; t.quickestPct=0; t.quickestPinned=false; saveDaily(); renderToday(); }
+function pinQuickest(){ const t=d(); t.quickestPinned=!t.quickestPinned; saveDaily(); renderToday(); }
+function setQuickestPct(taskId,pct){
+  const t=d(); t.quickestPct=pct;
+  const task=taskById(taskId);
+  if(task&&pct>task.pct){ task.pct=pct; saveTasks(); }
+  saveDaily(); renderToday();
 }
 
 /* pick handlers */
@@ -443,10 +501,14 @@ let cachedTemp=null;
 async function fetchTemp(){
   if(cachedTemp!==null) return cachedTemp;
   try{
-    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&daily=temperature_2m_max&temperature_unit=fahrenheit&timezone=America%2FDetroit&forecast_days=1');
+    /* time out the weather call so a slow/unreachable API can't stall the page */
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),5000);
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&daily=temperature_2m_max&temperature_unit=fahrenheit&timezone=America%2FDetroit&forecast_days=1',{signal:ctrl.signal});
+    clearTimeout(timer);
     const j=await r.json();
     cachedTemp=Math.round(j.daily.temperature_2m_max[0]);
-  }catch(e){ cachedTemp='--'; }
+  }catch(e){ return '--'; } /* don't cache the failure — retry on the next render */
   return cachedTemp;
 }
 
@@ -572,6 +634,7 @@ async function renderToday(){
     area.innerHTML='<div class="card"><div class="card-title">Today\'s Tasks</div>'+
       '<div class="muted">Work day — no assigned home tasks. 💼</div>'+
       '<div style="text-align:center;padding-bottom:6px"><button class="btn" onclick="forceTasks()">Give me tasks anyway</button></div></div>'+
+      quickestCard()+
       pickCard()+addPickBtn;
     return;
   }
@@ -580,6 +643,7 @@ async function renderToday(){
   const temp=await fetchTemp();
   area.innerHTML=taskCard('Inside',t.inside,t.insidePct,temp)+
     taskCard('Outside',t.outside,t.outsidePct,temp)+
+    quickestCard()+
     pickCard()+addPickBtn;
 }
 
@@ -588,7 +652,7 @@ function selLoc(btn){ document.querySelectorAll('[data-loc]').forEach(b=>b.class
 function addTask(){
   const inp=document.getElementById('new-task-input'), txt=inp.value.trim(); if(!txt) return;
   const cat=document.getElementById('new-task-cat').value;
-  tasks.push({id:Date.now(),text:txt,loc:newTaskLoc,cat:cat,sub:'',pct:0,active:true});
+  tasks.push({id:Date.now(),text:txt,loc:newTaskLoc,cat:cat,sub:'',pct:0,hrs:null,active:true});
   inp.value=''; saveTasks(); renderTasks();
 }
 function delTask(id){ if(!confirm('Delete this task permanently?')) return; tasks=tasks.filter(t=>t.id!==id); saveTasks(); renderTasks(); }
@@ -603,9 +667,13 @@ function saveEdit(id){
   t.loc=document.getElementById('edit-loc').value;
   t.cat=document.getElementById('edit-cat').value;
   t.sub=document.getElementById('edit-sub').value.trim();
+  const hv=document.getElementById('edit-hrs').value; t.hrs=hv?+hv:null;
   editingId=null; saveTasks(); renderTasks();
 }
 function catOptions(sel){ return CATS.map(c=>'<option value="'+c+'" '+(c===sel?'selected':'')+'>'+(CAT_ICON[c]||'')+' '+c+'</option>').join(''); }
+function hrsOptions(sel){ return '<option value="">— No estimate —</option>'+HRS_STEPS.map(h=>'<option value="'+h+'" '+(sel===h?'selected':'')+'>'+fmtHrs(h)+'</option>').join(''); }
+let taskSort='default';
+function setTaskSort(btn,s){ taskSort=s; document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); renderTasks(); }
 function renderTasks(){
   let list=tasks.filter(t=>t.active);
   if(taskFilter==='started') list=list.filter(t=>t.pct>0&&t.pct<100);
@@ -613,6 +681,12 @@ function renderTasks(){
   else if(taskFilter!=='all') list=list.filter(t=>t.loc===taskFilter);
   const catF=document.getElementById('cat-filter').value;
   if(catF!=='all') list=list.filter(t=>(t.cat||'Other')===catF);
+  if(taskSort==='quickest') list.sort((a,b)=>{
+    const ra=remHrs(a), rb=remHrs(b);
+    if(ra==null&&rb==null) return 0;
+    if(ra==null) return 1; if(rb==null) return -1;
+    return ra-rb;
+  });
   const el=document.getElementById('task-list');
   if(!list.length){ el.innerHTML='<div class="empty-state">No tasks match</div>'; return; }
   el.innerHTML=list.map(t=>{
@@ -622,6 +696,7 @@ function renderTasks(){
         '<select id="edit-loc"><option '+(t.loc==='Inside'?'selected':'')+'>Inside</option><option '+(t.loc==='Outside'?'selected':'')+'>Outside</option><option '+(t.loc==='Away From Home'?'selected':'')+'>Away From Home</option></select>'+
         '<select id="edit-cat">'+catOptions(t.cat||'Other')+'</select>'+
         '<input class="capture-input" id="edit-sub" value="'+esc(t.sub||'')+'" placeholder="Detail (room, vehicle…)" style="border:1px solid var(--border2);border-radius:6px;padding:7px 10px">'+
+        '<select id="edit-hrs" style="font-size:13px;padding:7px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">'+hrsOptions(t.hrs||null)+'</select>'+
         '<div style="display:flex;gap:6px"><button class="btn" style="flex:1" onclick="saveEdit('+t.id+')">💾 Save</button>'+
         '<button class="btn" style="flex:1" onclick="editTask('+t.id+')">Cancel</button></div></div>';
     }
@@ -631,7 +706,9 @@ function renderTasks(){
       '<span class="badge '+locBadge(t.loc)+'">'+(t.loc==='Away From Home'?'🚗 Away':t.loc==='Inside'?'🏠 Inside':'🌳 Outside')+'</span>'+
       '<span class="badge badge-note">'+(CAT_ICON[t.cat]||'📦')+' '+esc(t.cat||'Other')+'</span>'+
       (t.sub?'<span class="entry-time">'+esc(t.sub)+'</span>':'')+
-      '<span class="badge badge-pct">'+t.pct+'%</span></div>'+
+      '<span class="badge badge-pct">'+t.pct+'%</span>'+
+      (t.hrs!=null?'<span class="hrs-chip">'+fmtHrs(remHrs(t))+'&nbsp;left</span>':'')+
+      '</div>'+
       '<div class="prog-bar"><div class="prog-fill" style="width:'+t.pct+'%"></div></div>'+
       '</div><button class="del-btn" onclick="editTask('+t.id+')" title="Edit" style="font-size:14px">✎</button>'+
       '<button class="del-btn" onclick="delTask('+t.id+')">×</button></div>';
@@ -728,8 +805,8 @@ function exportCSV(){
     const pksStr=(r.picks||[]).map(p=>{ const t=taskById(p.id); return t?t.text+' ('+p.pct+'%)':''; }).filter(Boolean).join(' | ');
     rows.push([k,r.dayType,fmtWake(r.wake),r.bed?fmtWake(r.bed):'',r.exercise,it?it.text:'',r.insidePct||0,r.insidePinned?'yes':'',ot?ot.text:'',r.outsidePct||0,r.outsidePinned?'yes':'',pksStr]);
   });
-  rows.push([''],['=== TASKS ==='],['Task','Location','Category','Detail','% Complete']);
-  tasks.forEach(t=>rows.push([t.text,t.loc,t.cat||'Other',t.sub||'',t.pct]));
+  rows.push([''],['=== TASKS ==='],['Task','Location','Category','Detail','Est Hrs','Rem Hrs','% Complete']);
+  tasks.forEach(t=>rows.push([t.text,t.loc,t.cat||'Other',t.sub||'',t.hrs!=null?t.hrs:'',t.hrs!=null?remHrs(t):'',t.pct]));
   rows.push([''],['=== LOG ENTRIES ==='],['Date','Type','Status','Text']);
   entries.forEach(e=>rows.push([new Date(e.created).toLocaleString('en-US'),e.type,e.status,e.text]));
   const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
